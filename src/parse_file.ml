@@ -35,10 +35,12 @@ let to_cmo = fun x ->
       Str.replace_first r "\\1o" x
     else x;;
 
-let ttest = fun x ->
+let ttest = fun x ffile ->
   let max = fun x y -> if x > y then x else y in
   let first = function (a, _) -> a in
-  let o = find_first x in
+  let o = match ffile with
+    | None -> find_first x
+    | Some s -> let c = open_in s in List.hd (parse_file c) in
   let h = Hashtbl.create 50 in
   let _ = Hashtbl.add h (first o) 1 in
   let set_value = fun n1 n2 ->
@@ -63,7 +65,15 @@ let main = fun args ->
   if Array.length args = 1 then
     Printf.printf "You should give files as parametter\n"
   else
-    let files = let i = Array.to_list Sys.argv in List.tl i in
+    let (files, ffile) = Array.fold_left (fun acc elt ->
+        if elt = "-f" then
+          (fst acc, Some "-f")
+        else if (snd acc) = (Some "-f") then
+          (fst acc, Some elt)
+        else
+          ((fst acc) @ [elt], snd acc)
+      ) ([], None) args in
+    let files = List.tl files in
     let pff = fun x -> let c = open_in x in parse_file c in
     let ll = List.map (fun x -> pff x) files in
     let l = List.fold_left (@) [] ll in
@@ -72,7 +82,7 @@ let main = fun args ->
     let l = List.map (fun (x, l) ->
         (x, List.map to_cmo l |>
             List.filter (fun y -> String.compare x y != 0))) l in
-    let ll = ttest l in
+    let ll = ttest l ffile in
     List.sort (fun (_, x) (_, y) -> compare x y) ll |>
     List.map (fun (a, _) -> a) |>
     List.rev |>
